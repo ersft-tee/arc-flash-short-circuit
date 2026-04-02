@@ -2,12 +2,41 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>arc-flash-short-circuit</title>
+    <meta name="description" content="Arc flash and short circuit analysis quick reference and calculator for electrical engineers. IEEE 1584, NEC, NFPA 70E." />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <title>Arc Flash & Short Circuit Calculator</title>
+    <style>
+      /* Shown only if JS fails to load — React will replace #root contents */
+      #js-fallback {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100svh;
+        background: #0f1117;
+        color: #e2e8f0;
+        font-family: system-ui, sans-serif;
+        text-align: center;
+        padding: 2rem;
+      }
+      #js-fallback h1 { color: #f59e0b; margin-bottom: 0.5rem; }
+      #js-fallback p  { color: #64748b; max-width: 400px; line-height: 1.6; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <div id="root">
+      <div id="js-fallback">
+        <h1>⚡ Arc Flash Calculator</h1>
+        <p>
+          This application requires JavaScript to run.
+          Please enable JavaScript in your browser and reload the page.
+        </p>
+      </div>
+    </div>
+    <noscript>
+      <style>#js-fallback { display: flex !important; }</style>
+    </noscript>
+    <script type="module" src="src/main.jsx"></script>
   </body>
 </html>
