@@ -1,42 +1,63 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Arc flash and short circuit analysis quick reference and calculator for electrical engineers. IEEE 1584, NEC, NFPA 70E." />
-    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <title>Arc Flash & Short Circuit Calculator</title>
-    <style>
-      /* Shown only if JS fails to load — React will replace #root contents */
-      #js-fallback {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-height: 100svh;
-        background: #0f1117;
-        color: #e2e8f0;
-        font-family: system-ui, sans-serif;
-        text-align: center;
-        padding: 2rem;
-      }
-      #js-fallback h1 { color: #f59e0b; margin-bottom: 0.5rem; }
-      #js-fallback p  { color: #64748b; max-width: 400px; line-height: 1.6; }
-    </style>
-  </head>
-  <body>
-    <div id="root">
-      <div id="js-fallback">
-        <h1>⚡ Arc Flash Calculator</h1>
-        <p>
-          This application requires JavaScript to run.
-          Please enable JavaScript in your browser and reload the page.
-        </p>
-      </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Arc flash and short circuit analysis quick reference and calculator. IEEE 1584, NEC 2023, NFPA 70E 2021." />
+  <title>Arc Flash &amp; Short Circuit Calculator</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" crossorigin />
+
+  <!-- Tailwind Play CDN -->
+  <script src="https://cdn.tailwindcss.com" crossorigin></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { mono: ['"JetBrains Mono"', 'Consolas', 'monospace'] } } }
+    };
+  </script>
+
+  <!-- Import map: pin versions for stability -->
+  <script type="importmap">
+  {
+    "imports": {
+      "react":            "https://esm.sh/react@18.3.1",
+      "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+      "htm/react":        "https://esm.sh/htm@3.1.1/react",
+      "jspdf":            "https://esm.sh/jspdf@2.5.1"
+    }
+  }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: #0f1117; color: #e2e8f0; }
+    #root { width: 100%; min-height: 100svh; }
+    .mono { font-family: 'JetBrains Mono', Consolas, monospace; }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    /* Shown until React mounts */
+    #fallback {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 100svh;
+      background: #0f1117; color: #e2e8f0;
+      font-family: system-ui, sans-serif; text-align: center; padding: 2rem;
+    }
+    #fallback h1 { color: #f59e0b; margin-bottom: .5rem; font-size: 1.5rem; }
+    #fallback p  { color: #64748b; max-width: 380px; line-height: 1.6; }
+    /* select arrow color fix on dark bg */
+    select option { background: #1e293b; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div id="fallback">
+      <h1>⚡ Arc Flash Calculator</h1>
+      <p>Loading application… If this persists, ensure JavaScript is enabled and you have an internet connection (CDN resources required).</p>
     </div>
-    <noscript>
-      <style>#js-fallback { display: flex !important; }</style>
-    </noscript>
-    <script type="module" src="src/main.jsx"></script>
-  </body>
+  </div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
 </html>
