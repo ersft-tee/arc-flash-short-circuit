@@ -1,63 +1,1422 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Arc flash and short circuit analysis quick reference and calculator. IEEE 1584, NEC 2023, NFPA 70E 2021." />
-  <title>Arc Flash &amp; Short Circuit Calculator</title>
-
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" crossorigin />
-
-  <!-- Tailwind Play CDN -->
-  <script src="https://cdn.tailwindcss.com" crossorigin></script>
-  <script>
-    tailwind.config = {
-      theme: { extend: { fontFamily: { mono: ['"JetBrains Mono"', 'Consolas', 'monospace'] } } }
-    };
-  </script>
-
-  <!-- Import map: pin versions for stability -->
-  <script type="importmap">
-  {
-    "imports": {
-      "react":            "https://esm.sh/react@18.3.1",
-      "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
-      "htm/react":        "https://esm.sh/htm@3.1.1/react",
-      "jspdf":            "https://esm.sh/jspdf@2.5.1"
-    }
-  }
-  </script>
-
-  <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    body { margin: 0; background: #0f1117; color: #e2e8f0; }
-    #root { width: 100%; min-height: 100svh; }
-    .mono { font-family: 'JetBrains Mono', Consolas, monospace; }
-    .scrollbar-hide::-webkit-scrollbar { display: none; }
-    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-    /* Shown until React mounts */
-    #fallback {
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; min-height: 100svh;
-      background: #0f1117; color: #e2e8f0;
-      font-family: system-ui, sans-serif; text-align: center; padding: 2rem;
-    }
-    #fallback h1 { color: #f59e0b; margin-bottom: .5rem; font-size: 1.5rem; }
-    #fallback p  { color: #64748b; max-width: 380px; line-height: 1.6; }
-    /* select arrow color fix on dark bg */
-    select option { background: #1e293b; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arc Flash &amp; Short Circuit Calculator</title>
+<style>
+/* ── Variables ─────────────────────────────────────────────────────────── */
+:root {
+  --bg:       #0f1117;
+  --bg-card:  #13151c;
+  --bg-input: #0d1117;
+  --bg-code:  #1a1f2e;
+  --border:   #1e293b;
+  --border2:  #334155;
+  --text:     #e2e8f0;
+  --text2:    #94a3b8;
+  --text3:    #475569;
+  --amber:    #f59e0b;
+  --amber-d:  #d97706;
+  --amber-bg: rgba(245,158,11,.10);
+  --amber-br: rgba(245,158,11,.20);
+  --green:    #10b981;
+  --green-bg: rgba(16,185,129,.10);
+  --green-br: rgba(16,185,129,.20);
+  --red:      #ef4444;
+  --red-bg:   rgba(239,68,68,.10);
+  --red-br:   rgba(239,68,68,.20);
+  --orange:   #f97316;
+  --orange-bg:rgba(249,115,22,.10);
+  --yellow:   #eab308;
+  --yellow-bg:rgba(234,179,8,.10);
+  --blue-bg:  rgba(59,130,246,.06);
+  --blue-br:  rgba(59,130,246,.20);
+  --blue:     #60a5fa;
+  --sidebar-w:220px;
+  --mono: 'JetBrains Mono','Cascadia Code','Fira Code',Consolas,'Courier New',monospace;
+}
+/* ── Reset ──────────────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5;overflow:hidden;height:100svh}
+button{cursor:pointer;border:none;background:none;font:inherit;color:inherit}
+input,select{font:inherit}
+a{color:inherit}
+table{border-collapse:collapse;width:100%}
+/* ── App Shell ──────────────────────────────────────────────────────────── */
+#app{display:flex;height:100svh;overflow:hidden}
+#sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100%;overflow:hidden;transition:transform .2s}
+#wrapper{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0}
+#main{flex:1;overflow-y:auto;padding:1.25rem 1.5rem}
+/* ── Loading ────────────────────────────────────────────────────────────── */
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;transition:opacity .3s}
+.bolt{width:5rem;height:6rem;position:relative;margin-bottom:2rem}
+.bolt svg{width:100%;height:100%}
+.bolt::before{content:'';position:absolute;inset:-50%;background:radial-gradient(ellipse,rgba(245,158,11,.3),transparent 70%);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.load-title{font-size:1.375rem;font-weight:700;color:var(--amber);letter-spacing:.1em;margin-bottom:.25rem}
+.load-sub{font-size:.75rem;color:var(--text3);letter-spacing:.15em;margin-bottom:2.5rem}
+.load-bar-track{width:18rem;height:4px;background:var(--border);border-radius:9999px;overflow:hidden;margin-bottom:.75rem}
+.load-bar-fill{height:100%;background:linear-gradient(90deg,var(--amber-d),var(--amber));border-radius:9999px;transition:width .3s}
+.load-phase{font-size:.7rem;color:var(--text3);font-family:var(--mono)}
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
+.sb-logo{display:flex;align-items:center;gap:.625rem;padding:1rem;border-bottom:1px solid var(--border)}
+.sb-icon{background:var(--amber);border-radius:4px;width:1.5rem;height:1.5rem;display:flex;align-items:center;justify-content:center;font-size:.875rem;color:var(--bg);flex-shrink:0}
+.sb-name{font-size:.6875rem;font-weight:700;color:var(--amber);line-height:1.2}
+.sb-sub{font-size:.5625rem;color:var(--text3);line-height:1.2}
+.sb-nav{flex:1;overflow-y:auto;padding:.5rem 0}
+.sb-nav::-webkit-scrollbar{width:4px}
+.sb-nav::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.sb-section{font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);padding:.5rem 1rem .25rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
+.sb-section:hover{color:var(--text2)}
+.sb-item{display:flex;align-items:center;gap:.5rem;width:100%;padding:.4375rem 1rem;font-size:.75rem;color:var(--text2);border-left:2px solid transparent;transition:all .15s;text-align:left}
+.sb-item:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.sb-item.active{background:var(--amber-bg);color:var(--amber);border-left-color:var(--amber);font-weight:600}
+.sb-item .ic{font-size:.875rem;flex-shrink:0;width:1rem;text-align:center}
+.sb-badge{margin-left:auto;background:var(--amber-bg);color:var(--amber);font-size:.5625rem;font-family:var(--mono);padding:.125rem .4rem;border-radius:9999px;border:1px solid var(--amber-br)}
+.sb-foot{padding:.75rem 1rem;border-top:1px solid var(--border);font-size:.5625rem;color:var(--text3);line-height:1.6}
+/* ── Topbar ─────────────────────────────────────────────────────────────── */
+.tb-status{display:flex;align-items:center;gap:.5rem;font-size:.625rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase}
+.tb-dot{width:.375rem;height:.375rem;border-radius:50%;background:var(--amber);animation:pulse 2s ease-in-out infinite}
+.tb-right{font-size:.625rem;font-family:var(--mono);color:var(--text3)}
+.ham{display:none;padding:.25rem;color:var(--text2);font-size:1.25rem}
+/* ── Section header ──────────────────────────────────────────────────────── */
+.page-header{display:flex;align-items:flex-start;gap:.75rem;margin-bottom:1.5rem}
+.page-icon{background:var(--amber-bg);border:1px solid var(--amber-br);border-radius:.5rem;width:2.25rem;height:2.25rem;display:flex;align-items:center;justify-content:center;font-size:1.125rem;flex-shrink:0}
+.page-title{font-size:1.0625rem;font-weight:700;color:var(--text)}
+.page-sub{font-size:.6875rem;color:var(--text3);margin-top:.125rem}
+/* ── Layout helpers ──────────────────────────────────────────────────────── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+.stack{display:flex;flex-direction:column;gap:1rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:.75rem;padding:1rem}
+.card-title{font-size:.6875rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.875rem;display:flex;align-items:center;justify-content:space-between}
+/* ── Form elements ───────────────────────────────────────────────────────── */
+.fg{display:flex;flex-direction:column;gap:.25rem}
+.fg label,.fg .lbl{font-size:.6875rem;font-weight:600;color:var(--text2);display:flex;justify-content:space-between}
+.hint{font-size:.5625rem;color:var(--text3);font-weight:400}
+.iw{display:flex}
+.iw input,.iw select{flex:1;background:var(--bg-input);border:1px solid var(--border);color:var(--text);padding:.4375rem .75rem;font-size:.8125rem;outline:none;transition:border-color .15s}
+.iw input:focus,.iw select:focus{border-color:var(--amber)}
+.iw input.ur{border-radius:.375rem 0 0 .375rem}
+.iw input.full,.iw select.full{border-radius:.375rem}
+.iw .unit{background:var(--bg-code);border:1px solid var(--border);border-left:none;padding:.4375rem .625rem;font-size:.6875rem;color:var(--text3);border-radius:0 .375rem .375rem 0;white-space:nowrap;display:flex;align-items:center}
+select.full{width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text);padding:.4375rem .75rem;font-size:.8125rem;border-radius:.375rem;outline:none;transition:border-color .15s}
+select.full:focus{border-color:var(--amber)}
+select option{background:var(--bg-card)}
+/* ── Toggle ─────────────────────────────────────────────────────────────── */
+.tog{display:flex;align-items:center;justify-content:space-between;gap:.75rem;cursor:pointer;user-select:none}
+.tog-text .tog-label{font-size:.6875rem;font-weight:600;color:var(--text2)}
+.tog-text .tog-hint{font-size:.5625rem;color:var(--text3)}
+.tog-track{position:relative;width:2.5rem;height:1.25rem;background:var(--border2);border-radius:9999px;flex-shrink:0;transition:background .2s}
+.tog-track.on{background:var(--amber)}
+.tog-thumb{position:absolute;top:.125rem;left:.125rem;width:1rem;height:1rem;background:#fff;border-radius:50%;transition:transform .2s}
+.tog-track.on .tog-thumb{transform:translateX(1.25rem)}
+/* ── Result rows ──────────────────────────────────────────────────────────── */
+.rr{display:flex;align-items:center;justify-content:space-between;padding:.4375rem 0;border-bottom:1px solid rgba(30,41,59,.6)}
+.rr:last-child{border-bottom:none}
+.rr .rl{font-size:.6875rem;color:var(--text3)}
+.rr .rv{font-family:var(--mono);font-weight:700;font-size:.8125rem;color:var(--amber);display:flex;align-items:center;gap:.3rem}
+.rr .rv.green{color:var(--green)}
+.rr .rv.red{color:var(--red)}
+.rr .rv.amber{color:var(--amber)}
+.rr .rv.gray{color:var(--text2)}
+.rv-unit{font-size:.5625rem;color:var(--text3);font-family:system-ui;font-weight:400}
+/* ── Big result ───────────────────────────────────────────────────────────── */
+.big-result{margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)}
+.big-result-label{font-size:.625rem;color:var(--text3);margin-bottom:.25rem}
+.big-result-value{font-family:var(--mono);font-size:2rem;font-weight:700;color:var(--amber);line-height:1}
+.big-result-value .big-unit{font-size:1rem;color:var(--amber-d);margin-left:.25rem}
+.big-result-value.green{color:var(--green)}
+.big-result-value.red{color:var(--red)}
+.big-result-sub{font-size:.5625rem;color:var(--text3);margin-top:.25rem}
+/* ── Badges ──────────────────────────────────────────────────────────────── */
+.badge{display:inline-flex;font-size:.5625rem;font-weight:700;padding:.125rem .5rem;border-radius:9999px;border:1px solid;white-space:nowrap}
+.badge.green{background:var(--green-bg);color:var(--green);border-color:var(--green-br)}
+.badge.red{background:var(--red-bg);color:var(--red);border-color:var(--red-br)}
+.badge.amber{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-br)}
+.badge.orange{background:var(--orange-bg);color:var(--orange);border-color:rgba(249,115,22,.25)}
+.badge.gray{background:rgba(100,116,139,.1);color:var(--text2);border-color:var(--border2)}
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn-save{background:rgba(51,65,85,.5);border:1px solid var(--border2);color:var(--text2);font-size:.6875rem;padding:.3125rem .75rem;border-radius:.375rem;transition:all .15s}
+.btn-save:hover{background:var(--border2);color:var(--text)}
+.btn-export{background:var(--amber-bg);border:1px solid var(--amber-br);color:var(--amber);font-size:.6875rem;font-weight:600;padding:.3125rem .75rem;border-radius:.375rem;transition:all .15s}
+.btn-export:hover{background:rgba(245,158,11,.2)}
+.btn-row{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.5rem}
+/* ── Preset chips ──────────────────────────────────────────────────────────── */
+.chips{display:flex;flex-wrap:wrap;gap:.375rem;margin-bottom:1.25rem}
+.chip{font-size:.6875rem;padding:.25rem .625rem;border-radius:.375rem;border:1px solid var(--border);background:rgba(30,41,59,.5);color:var(--text2);transition:all .15s}
+.chip:hover{border-color:rgba(245,158,11,.4);color:var(--amber)}
+.chip.active{background:var(--amber);border-color:var(--amber);color:#000;font-weight:700}
+.chip-sm{font-size:.5625rem;padding:.1875rem .5rem}
+/* ── Info boxes ───────────────────────────────────────────────────────────── */
+.info{border:1px solid;border-radius:.5rem;padding:.625rem .875rem;font-size:.6875rem;line-height:1.6;margin-top:.25rem}
+.info.blue{background:var(--blue-bg);border-color:var(--blue-br);color:var(--blue)}
+.info.amber{background:var(--amber-bg);border-color:var(--amber-br);color:var(--amber)}
+.info.red{background:var(--red-bg);border-color:var(--red-br);color:var(--red)}
+/* ── Progress bar ─────────────────────────────────────────────────────────── */
+.vd-bar{height:.5rem;background:var(--border);border-radius:9999px;overflow:hidden;margin-top:.75rem}
+.vd-bar-fill{height:100%;border-radius:9999px;transition:width .3s}
+.vd-bar-fill.green{background:var(--green)}
+.vd-bar-fill.red{background:var(--red)}
+/* ── PPE banner ───────────────────────────────────────────────────────────── */
+.ppe-banner{border:1px solid;border-radius:.75rem;padding:1rem}
+.ppe-banner.cat0{background:var(--green-bg);border-color:rgba(16,185,129,.3)}
+.ppe-banner.cat1{background:var(--yellow-bg);border-color:rgba(234,179,8,.3)}
+.ppe-banner.cat2{background:var(--orange-bg);border-color:rgba(249,115,22,.3)}
+.ppe-banner.cat3,.ppe-banner.cat4,.ppe-banner.cat5{background:var(--red-bg);border-color:rgba(239,68,68,.3)}
+.ppe-cat-num{font-size:2.5rem;font-family:var(--mono);font-weight:900;line-height:1}
+.cat0 .ppe-cat-num,.cat0 .ppe-cat-label{color:var(--green)}
+.cat1 .ppe-cat-num,.cat1 .ppe-cat-label{color:var(--yellow)}
+.cat2 .ppe-cat-num,.cat2 .ppe-cat-label{color:var(--orange)}
+.cat3 .ppe-cat-num,.cat3 .ppe-cat-label,.cat4 .ppe-cat-num,.cat4 .ppe-cat-label,.cat5 .ppe-cat-num,.cat5 .ppe-cat-label{color:var(--red)}
+.ppe-cat-label{font-size:.75rem;font-weight:700}
+.ppe-cat-range{font-size:.625rem;color:var(--text3);margin-top:.125rem}
+.ppe-cat-head{display:flex;align-items:center;gap:.875rem;margin-bottom:.875rem}
+.ppe-item{display:flex;gap:.375rem;font-size:.6875rem;color:var(--text2);margin-bottom:.25rem}
+.ppe-item-dot{margin-top:.25rem;font-size:.5rem;flex-shrink:0}
+.ppe-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.875rem}
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:.75rem}
+table.ref{background:var(--bg-card);min-width:500px}
+table.ref th{text-align:left;font-size:.5625rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:.625rem .75rem;border-bottom:1px solid var(--border);white-space:nowrap}
+table.ref td{padding:.5625rem .75rem;border-bottom:1px solid rgba(30,41,59,.5);font-size:.6875rem;color:var(--text2);vertical-align:middle}
+table.ref tr:last-child td{border-bottom:none}
+table.ref tr:hover td{background:rgba(255,255,255,.02)}
+.td-mono{font-family:var(--mono);font-weight:700;color:var(--amber);font-size:.6875rem}
+.td-name{font-weight:600;color:var(--text);font-size:.6875rem}
+.td-muted{font-size:.5625rem;color:var(--text3)}
+.ratings-wrap{display:flex;flex-wrap:wrap;gap:.25rem}
+.rating-chip{background:var(--amber-bg);border:1px solid var(--amber-br);color:var(--amber);font-size:.5625rem;font-family:var(--mono);font-weight:700;padding:.125rem .375rem;border-radius:.25rem}
+/* ── Reference section headers ────────────────────────────────────────────── */
+.ref-intro{font-size:.6875rem;color:var(--text3);line-height:1.6;margin-bottom:1rem}
+.ref-note{font-size:.5625rem;color:var(--text3);margin-top:.5rem;line-height:1.5}
+.approach-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:1rem}
+.approach-card{border:1px solid;border-radius:.5rem;padding:.75rem;font-size:.6875rem}
+.approach-card.yellow{background:var(--yellow-bg);border-color:rgba(234,179,8,.25)}
+.approach-card.orange{background:var(--orange-bg);border-color:rgba(249,115,22,.25)}
+.approach-card.red{background:var(--red-bg);border-color:rgba(239,68,68,.25)}
+.approach-card-title{font-weight:700;margin-bottom:.25rem}
+.approach-card.yellow .approach-card-title{color:var(--yellow)}
+.approach-card.orange .approach-card-title{color:var(--orange)}
+.approach-card.red .approach-card-title{color:var(--red)}
+.approach-card-desc{color:var(--text3);font-size:.5625rem;line-height:1.5}
+.device-two{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:1rem}
+.device-card{background:var(--bg-card);border:1px solid var(--border);border-radius:.75rem;padding:.75rem}
+.device-card-title{font-size:.6875rem;font-weight:700;color:var(--text2);margin-bottom:.5rem}
+.device-item{display:flex;gap:.375rem;font-size:.5625rem;color:var(--text3);margin-bottom:.25rem}
+.device-dot{color:var(--amber-d);margin-top:.125rem}
+.type-pill{font-size:.5rem;font-weight:700;padding:.125rem .375rem;border-radius:.25rem;border:1px solid;display:inline-block}
+.type-pill.fuse{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-br)}
+.type-pill.breaker{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-br)}
+.type-pill.relay{background:rgba(167,139,250,.1);color:#a78bfa;border-color:rgba(167,139,250,.2)}
+.type-pill.recloser{background:var(--green-bg);color:var(--green);border-color:var(--green-br)}
+.td-inst{color:var(--green);font-family:var(--mono);font-size:.5625rem}
+.td-st{color:var(--yellow);font-family:var(--mono);font-size:.5625rem}
+.td-lt{color:var(--orange);font-family:var(--mono);font-size:.5625rem}
+.td-none{color:var(--text3);font-size:.5625rem}
+/* ── Saved calculations ───────────────────────────────────────────────────── */
+.saved-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.saved-count{font-size:.6875rem;color:var(--text3)}
+.saved-empty{text-align:center;padding:4rem 2rem;color:var(--text3)}
+.saved-empty-icon{font-size:2.5rem;opacity:.2;margin-bottom:1rem}
+.saved-card{background:var(--bg-card);border:1px solid var(--border);border-radius:.75rem;overflow:hidden;margin-bottom:.75rem}
+.saved-card-head{display:flex;align-items:center;justify-content:space-between;padding:.625rem 1rem}
+.saved-card-meta{display:flex;align-items:center;gap:.625rem;min-width:0;flex:1}
+.saved-card-date{font-size:.5625rem;color:var(--text3);white-space:nowrap}
+.saved-card-actions{display:flex;gap:.25rem;flex-shrink:0;margin-left:.75rem}
+.saved-card-actions button{font-size:.6875rem;padding:.25rem .5rem;border-radius:.3rem;transition:all .15s}
+.btn-pdf{color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber-br)}
+.btn-pdf:hover{background:rgba(245,158,11,.2)}
+.btn-del{color:var(--text3);background:transparent;border:1px solid transparent}
+.btn-del:hover{color:var(--red);background:var(--red-bg);border-color:var(--red-br)}
+.btn-expand{color:var(--text3);background:transparent;border:1px solid transparent;font-size:.75rem}
+.btn-expand:hover{background:var(--border)}
+.saved-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:.625rem;padding:0 1rem .875rem}
+.metric{background:rgba(51,65,85,.4);border-radius:.5rem;padding:.5rem .625rem}
+.metric-lbl{font-size:.5625rem;color:var(--text3);margin-bottom:.125rem}
+.metric-val{font-family:var(--mono);font-weight:700;font-size:.8125rem;color:var(--text)}
+.metric-val.amber{color:var(--amber)}
+.metric-val.green{color:var(--green)}
+.metric-val.red{color:var(--red)}
+.saved-detail{border-top:1px solid var(--border);padding:.875rem 1rem}
+.saved-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.saved-detail-section{font-size:.5625rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:.5rem}
+.saved-detail-row{display:flex;justify-content:space-between;font-size:.5625rem;margin-bottom:.2rem}
+.saved-detail-key{color:var(--text3)}
+.saved-detail-val{font-family:var(--mono);color:var(--amber)}
+/* ── PPE ref cards ────────────────────────────────────────────────────────── */
+.ppe-ref-card{border:1px solid;border-radius:.75rem;padding:1rem;margin-bottom:.75rem}
+.ppe-ref-card.c1{background:rgba(234,179,8,.06);border-color:rgba(234,179,8,.2)}
+.ppe-ref-card.c2{background:rgba(249,115,22,.06);border-color:rgba(249,115,22,.2)}
+.ppe-ref-card.c3,.ppe-ref-card.c4{background:rgba(239,68,68,.07);border-color:rgba(239,68,68,.25)}
+.ppe-ref-num{font-size:3rem;font-family:var(--mono);font-weight:900;line-height:1}
+.ppe-ref-head{display:flex;align-items:center;gap:1rem;margin-bottom:1rem}
+.ppe-ref-title{font-size:.875rem;font-weight:700}
+.ppe-ref-range{font-size:.625rem;color:var(--text3)}
+.c1 .ppe-ref-num,.c1 .ppe-ref-title{color:var(--yellow)}
+.c2 .ppe-ref-num,.c2 .ppe-ref-title{color:var(--orange)}
+.c3 .ppe-ref-num,.c3 .ppe-ref-title,.c4 .ppe-ref-num,.c4 .ppe-ref-title{color:var(--red)}
+.ppe-ref-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.875rem}
+.ppe-ref-col-title{font-size:.5625rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:.5rem}
+.ppe-ref-item{display:flex;gap:.375rem;font-size:.5625rem;color:var(--text2);margin-bottom:.25rem;line-height:1.4}
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media(max-width:1024px){
+  .two-col{grid-template-columns:1fr}
+  .ppe-grid,.ppe-ref-cols,.device-two,.approach-cards{grid-template-columns:1fr}
+  .saved-metrics{grid-template-columns:1fr 1fr}
+}
+@media(max-width:768px){
+  #sidebar{position:fixed;top:0;left:0;height:100%;z-index:50;transform:translateX(-100%)}
+  #sidebar.open{transform:translateX(0)}
+  .overlay{display:block}
+  #main{padding:.875rem 1rem}
+  .ham{display:block}
+  .tb-status{display:none}
+}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:49}
+#overlay.show{display:block}
+/* ── Print (PDF export window) ────────────────────────────────────────────── */
+@media print{
+  body{background:#fff;color:#000}
+  .no-print{display:none}
+}
+</style>
 </head>
 <body>
-  <div id="root">
-    <div id="fallback">
-      <h1>⚡ Arc Flash Calculator</h1>
-      <p>Loading application… If this persists, ensure JavaScript is enabled and you have an internet connection (CDN resources required).</p>
+
+<div id="loading">
+  <div class="bolt">
+    <svg viewBox="0 0 60 80" fill="none">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#fbbf24"/>
+        <stop offset="100%" stop-color="#d97706"/>
+      </linearGradient></defs>
+      <polygon points="34,2 6,44 26,44 26,78 54,36 34,36" fill="url(#g)" stroke="#fcd34d" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <div class="load-title">ARC FLASH CALCULATOR</div>
+  <div class="load-sub">IEEE 1584 &middot; NEC &middot; NFPA 70E</div>
+  <div class="load-bar-track"><div class="load-bar-fill" id="load-bar" style="width:0%"></div></div>
+  <div class="load-phase" id="load-phase">Initializing...</div>
+</div>
+
+<div id="overlay" onclick="closeSidebar()"></div>
+<div id="app" style="display:none"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════════════════════
+
+const SIZES = ['14 AWG','12 AWG','10 AWG','8 AWG','6 AWG','4 AWG','3 AWG','2 AWG',
+  '1 AWG','1/0 AWG','2/0 AWG','3/0 AWG','4/0 AWG',
+  '250 kcmil','300 kcmil','350 kcmil','400 kcmil','500 kcmil','600 kcmil','750 kcmil'];
+
+// [cu_steel, cu_pvc, al_steel, al_pvc] Ω/1000ft at 75°C
+const R = {'14 AWG':[3.14,3.14,null,null],'12 AWG':[1.98,1.98,3.25,3.25],'10 AWG':[1.24,1.24,2.04,2.04],
+  '8 AWG':[.778,.778,1.28,1.28],'6 AWG':[.491,.491,.808,.808],'4 AWG':[.308,.308,.508,.508],
+  '3 AWG':[.245,.245,.403,.403],'2 AWG':[.194,.194,.319,.319],'1 AWG':[.154,.154,.253,.253],
+  '1/0 AWG':[.122,.122,.201,.201],'2/0 AWG':[.0967,.0967,.159,.159],'3/0 AWG':[.0766,.0766,.126,.126],
+  '4/0 AWG':[.0608,.0608,.100,.100],'250 kcmil':[.0515,.0515,.0847,.0847],'300 kcmil':[.0429,.0429,.0707,.0707],
+  '350 kcmil':[.0367,.0367,.0605,.0605],'400 kcmil':[.0321,.0321,.0529,.0529],
+  '500 kcmil':[.0258,.0258,.0424,.0424],'600 kcmil':[.0214,.0214,.0353,.0353],'750 kcmil':[.0171,.0171,.0282,.0282]};
+
+// [steel, pvc] Ω/1000ft
+const X = {'14 AWG':[.058,.050],'12 AWG':[.054,.050],'10 AWG':[.050,.044],
+  '8 AWG':[.052,.045],'6 AWG':[.051,.044],'4 AWG':[.048,.043],'3 AWG':[.047,.042],
+  '2 AWG':[.045,.040],'1 AWG':[.046,.041],'1/0 AWG':[.044,.040],'2/0 AWG':[.043,.039],
+  '3/0 AWG':[.042,.038],'4/0 AWG':[.041,.037],'250 kcmil':[.041,.037],'300 kcmil':[.041,.036],
+  '350 kcmil':[.040,.036],'400 kcmil':[.040,.035],'500 kcmil':[.039,.035],
+  '600 kcmil':[.039,.034],'750 kcmil':[.038,.034]};
+
+const CU_AMP = {'14 AWG':15,'12 AWG':20,'10 AWG':30,'8 AWG':50,'6 AWG':65,'4 AWG':85,
+  '3 AWG':100,'2 AWG':115,'1 AWG':130,'1/0 AWG':150,'2/0 AWG':175,'3/0 AWG':200,
+  '4/0 AWG':230,'250 kcmil':255,'300 kcmil':285,'350 kcmil':310,'400 kcmil':335,
+  '500 kcmil':380,'600 kcmil':420,'750 kcmil':475};
+const AL_AMP = {'12 AWG':20,'10 AWG':25,'8 AWG':40,'6 AWG':50,'4 AWG':65,'3 AWG':75,
+  '2 AWG':90,'1 AWG':100,'1/0 AWG':120,'2/0 AWG':135,'3/0 AWG':155,'4/0 AWG':180,
+  '250 kcmil':205,'300 kcmil':230,'350 kcmil':250,'400 kcmil':270,'500 kcmil':310,
+  '600 kcmil':340,'750 kcmil':385};
+
+const PPE_INFO = {
+  0:{label:'Below Threshold',range:'< 1.2 cal/cm²',minAR:'N/A',cls:'cat0',
+    clothing:['Normal work clothes (untreated cotton/wool OK)','No arc-rated PPE required'],equip:[]},
+  1:{label:'CAT 1',range:'1.2 – 4 cal/cm²',minAR:'4 cal/cm²',cls:'cat1',
+    clothing:['Arc-rated shirt & pants OR coverall (min 4 cal/cm²)','Arc-rated faceshield (min 4 cal/cm²) OR arc flash hood'],
+    equip:['Hard hat (Class E)','Safety glasses','Leather or Class 00/0 RIG + leather protectors','Leather work shoes']},
+  2:{label:'CAT 2',range:'4 – 8 cal/cm²',minAR:'8 cal/cm²',cls:'cat2',
+    clothing:['Arc-rated shirt & pants + coverall (total ≥ 8 cal/cm²)','Arc-rated faceshield + balaclava OR arc flash hood'],
+    equip:['Hard hat','Safety glasses','Class 0 RIG + leather protectors','Leather work shoes','Hearing protection']},
+  3:{label:'CAT 3',range:'8 – 25 cal/cm²',minAR:'25 cal/cm²',cls:'cat3',
+    clothing:['Arc-rated layered clothing system (min 25 cal/cm²)','Arc flash suit hood required'],
+    equip:['Hard hat inside hood','Safety glasses','Class 2 RIG + leather protectors','Leather work boots','Hearing protection']},
+  4:{label:'CAT 4',range:'25 – 40 cal/cm²',minAR:'40 cal/cm²',cls:'cat4',
+    clothing:['Full arc flash suit system (min 40 cal/cm²)','Multi-layer arc-rated clothing under suit'],
+    equip:['Hard hat inside hood','Safety glasses','Class 2+ RIG + leather protectors','Leather work boots','Hearing protection']},
+  5:{label:'DANGEROUS',range:'> 40 cal/cm²',minAR:'Exceeds Cat 4',cls:'cat5',
+    clothing:['DO NOT PERFORM WORK — Exceeds Cat 4 maximum (40 cal/cm²)','De-energize equipment before any work'],equip:[]}
+};
+
+const EQ_DATA = [
+  {t:'Panelboard',ex:'Square D QO, Eaton CH',v:'120/240V 1φ',r:['10 kA','22 kA','42 kA'],n:'Residential & light commercial'},
+  {t:'Panelboard',ex:'Square D NQ, Eaton PRL1a',v:'208Y/120V 3φ',r:['10 kA','14 kA','22 kA'],n:'Commercial lighting'},
+  {t:'Panelboard',ex:'Square D I-Line, Eaton PRL4',v:'480Y/277V 3φ',r:['14 kA','22 kA','42 kA','65 kA'],n:'Power distribution'},
+  {t:'Switchboard',ex:'Square D I-Line II, Eaton Pow-R-Line',v:'480Y/277V 3φ',r:['22 kA','42 kA','65 kA','100 kA'],n:'Main distribution'},
+  {t:'Switchgear (LV)',ex:'Square D Model 6, Eaton Magnum',v:'480V 3φ',r:['42 kA','65 kA','85 kA','100 kA'],n:'Draw-out breaker gear'},
+  {t:'MCC (Type B)',ex:'Allen-Bradley, Square D 8998',v:'480V 3φ',r:['10 kA','14 kA','22 kA','42 kA'],n:'Motor control centers'},
+  {t:'MCC (Type F)',ex:'Eaton Freedom, AB 2100',v:'480V 3φ',r:['42 kA','65 kA','100 kA'],n:'Industrial motor control'},
+  {t:'Switchgear (MV)',ex:'Square D GM-SG, Eaton VacClad',v:'5 – 15 kV',r:['20 kA','25 kA','31.5 kA','40 kA'],n:'Primary distribution'},
+  {t:'Load Center',ex:'Square D QO, Eaton CH',v:'120/240V',r:['10 kA','22 kA'],n:'Residential only'},
+  {t:'Enclosed Disc.',ex:'Square D H, GE THN',v:'240–600V',r:['10 kA','14 kA','22 kA'],n:'Branch circuit only'},
+];
+
+const APR_DATA = [
+  {v:'0 – 50 V',lim:'N/A',res:'N/A',proh:'Avoid contact'},
+  {v:'51 – 300 V',lim:'3 ft 6 in',res:'1 ft 0 in',proh:'Avoid contact'},
+  {v:'301 – 750 V',lim:'3 ft 6 in',res:'1 ft 0 in',proh:'0 ft 1 in'},
+  {v:'751 V – 15 kV',lim:'5 ft 0 in',res:'2 ft 2 in',proh:'0 ft 7 in'},
+  {v:'15.1 – 36 kV',lim:'6 ft 0 in',res:'2 ft 9 in',proh:'1 ft 5 in'},
+  {v:'36.1 – 46 kV',lim:'8 ft 0 in',res:'3 ft 4 in',proh:'2 ft 2 in'},
+  {v:'46.1 – 72.5 kV',lim:'8 ft 0 in',res:'4 ft 3 in',proh:'3 ft 0 in'},
+  {v:'72.6 – 121 kV',lim:'8 ft 0 in',res:'5 ft 8 in',proh:'4 ft 3 in'},
+  {v:'138 – 145 kV',lim:'10 ft 0 in',res:'7 ft 0 in',proh:'5 ft 7 in'},
+  {v:'161 – 169 kV',lim:'11 ft 0 in',res:'8 ft 0 in',proh:'6 ft 10 in'},
+  {v:'230 – 242 kV',lim:'13 ft 0 in',res:'10 ft 0 in',proh:'8 ft 9 in'},
+  {v:'345 – 362 kV',lim:'15 ft 4 in',res:'13 ft 0 in',proh:'12 ft 0 in'},
+  {v:'500 – 550 kV',lim:'19 ft 0 in',res:'17 ft 6 in',proh:'16 ft 5 in'},
+  {v:'765 – 800 kV',lim:'23 ft 9 in',res:'21 ft 8 in',proh:'20 ft 10 in'},
+];
+
+const DEV_DATA = [
+  {d:'CL Fuse (Class L, RK1)',t:'fuse',i:'< 0.25 cyc (< 4 ms)',s:'—',l:'—',n:'Fastest; best current limiting'},
+  {d:'CL Fuse (Class J, RK5)',t:'fuse',i:'< 0.5 cyc (< 8 ms)',s:'—',l:'—',n:'Common feeder protection'},
+  {d:'Non-CL Fuse (Class K5, H)',t:'fuse',i:'1 – 2 cycles',s:'—',l:'Up to hours',n:'Not current-limiting'},
+  {d:'MCCB — Instantaneous',t:'breaker',i:'0.5 – 1.5 cyc',s:'—',l:'—',n:'Magnetic trip, no delay'},
+  {d:'MCCB — Long-Time Delay',t:'breaker',i:'—',s:'—',l:'6 – 300 sec',n:'Thermal-magnetic overload'},
+  {d:'LV PCB — Instantaneous',t:'breaker',i:'< 1 cycle',s:'—',l:'—',n:'Fully adjustable frame breaker'},
+  {d:'LV PCB — Short-Time Delay',t:'breaker',i:'—',s:'6–30 cyc (0.1–0.5s)',l:'—',n:'Intentional delay for coordination'},
+  {d:'LV PCB — Long-Time Delay',t:'breaker',i:'—',s:'—',l:'30+ cyc (overload)',n:'Thermal memory element'},
+  {d:'MV Relay (50) — Inst.',t:'relay',i:'1.5 – 3 cycles',s:'—',l:'—',n:'High pickup, fast clearing'},
+  {d:'MV Relay (51) — Def. Time',t:'relay',i:'—',s:'6–3600 cyc (0.1–60s)',l:'—',n:'Fixed delay, current-independent'},
+  {d:'MV Relay (51) — Inv. Time',t:'relay',i:'—',s:'Varies (TCC curve)',l:'Varies (TCC)',n:'ANSI/IEC curves; current-dependent'},
+  {d:'MV Vacuum Breaker',t:'breaker',i:'—',s:'3–5 cyc interrupt',l:'—',n:'Relay + breaker total time'},
+  {d:'Recloser',t:'recloser',i:'Fast: 1–3 cycles',s:'Delay: 10–60 cycles',l:'—',n:'Multiple operations; utility distrib.'},
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════
+
+const S = {
+  page: 'transformer',
+  xfmr:  {kva:500,vPrimary:12470,vSecondary:480,zPercent:4.0,phases:3,useUtility:false,utilityFaultKA:0},
+  cable: {size:'4/0 AWG',material:'copper',conduit:'steel',lengthFt:200,loadAmps:200,voltage:480,phases:3,pf:0.85,isFeeder:true},
+  motor: {hp:100,voltage:480,efficiency:0.92,pf:0.88,phases:3,multiplier:4.0,baseFaultKA:0,includeBase:false},
+  arc:   {ibfKA:20,voltageKV:0.48,gapMM:32,durationCycles:6,workingDistanceIn:24,config:'box',grounded:true},
+  saved: [],
+  ui:    {sidebarOpen:false,expanded:{}}
+};
+
+function loadState() {
+  try { const sv = JSON.parse(localStorage.getItem('arc-saved')||'[]'); if(Array.isArray(sv)) S.saved = sv; } catch{}
+}
+function persist() {
+  try { localStorage.setItem('arc-saved', JSON.stringify(S.saved)); } catch{}
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CALCULATIONS
+// ═══════════════════════════════════════════════════════════════════════
+
+function calcXfmr({kva,vPrimary,vSecondary,zPercent,phases,useUtility,utilityFaultKA}) {
+  const Z = zPercent/100, s = Math.sqrt(3);
+  const flaS = phases===3 ? kva*1000/(s*vSecondary) : kva*1000/vSecondary;
+  const flaP = phases===3 ? kva*1000/(s*vPrimary)   : kva*1000/vPrimary;
+  const iscInf = flaS/Z;
+  let iscUtil = null;
+  if (useUtility && utilityFaultKA>0) {
+    const mva = s*(vPrimary/1000)*utilityFaultKA;
+    iscUtil = flaS/((kva/1000/mva)+Z);
+  }
+  return {flaS,flaP,iscInfKA:iscInf/1000,iscUtilKA:iscUtil?iscUtil/1000:null,iscKA:(iscUtil??iscInf)/1000};
+}
+
+function calcCable({size,material,conduit,lengthFt,loadAmps,voltage,phases,pf}) {
+  const ri = material==='copper'?(conduit==='steel'?R[size]?.[0]:R[size]?.[1]):(conduit==='steel'?R[size]?.[2]:R[size]?.[3]);
+  const xi = conduit==='steel'?X[size]?.[0]:X[size]?.[1];
+  if (ri==null||xi==null) return null;
+  const rT=ri*lengthFt/1000, xT=xi*lengthFt/1000;
+  const zT=Math.sqrt(rT*rT+xT*xT);
+  const sin=Math.sin(Math.acos(pf));
+  const vdPer=loadAmps*(rT*pf+xT*sin);
+  const vdT=phases===1?2*vdPer:Math.sqrt(3)*vdPer;
+  return {ri,xi,rT,xT,zT,vdT,vdPct:vdT/voltage*100,amp:material==='copper'?CU_AMP[size]:AL_AMP[size]};
+}
+
+function calcMotor({hp,voltage,efficiency,pf,phases,multiplier}) {
+  const fla=phases===3?(hp*746/(Math.sqrt(3)*voltage*efficiency*pf)):(hp*746/(voltage*efficiency*pf));
+  const c=fla*multiplier;
+  return {fla,cA:c,cKA:c/1000};
+}
+
+function calcArc({ibfKA,voltageKV,gapMM,durationCycles,workingDistanceIn,config,grounded}) {
+  const Ibf=ibfKA,V=voltageKV,G=gapMM,t=durationCycles/60,D=workingDistanceIn*25.4;
+  const K1=config==='box'?-.555:-.792, K2=grounded?-.113:0;
+  const lnIa=K1+K2+.662*Math.log(Ibf)+.0966*V+.000526*G+.5588*V*Math.log(Ibf)-.00304*G*Math.log(Ibf);
+  const Ia=Math.exp(lnIa);
+  const lnEn=K1+K2+1.081*Math.log(Ia)+.0011*G;
+  const En=Math.exp(lnEn);
+  const x=config==='box'?(V<=1?1.473:.973):2.0;
+  const Cf=V<=1?1.5:1.0;
+  const E=4.184*Cf*En*(t/.2)*Math.pow(610/D,x);
+  const afbMM=Math.pow((4.184*Cf*En*(t/.2)*Math.pow(610,x))/1.2,1/x);
+  const cat=E<1.2?0:E<=4?1:E<=8?2:E<=25?3:E<=40?4:5;
+  return {Ia,E,afbFt:afbMM/25.4/12,afbIn:afbMM/25.4,cat,tMs:t*1000};
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+
+const f = (n,d=1) => n==null||isNaN(n)?'—':n.toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
+const f4 = n => f(n,4);
+const f3 = n => f(n,3);
+const f2 = n => f(n,2);
+
+function getS(path) { return path.split('.').reduce((o,k)=>o?.[k],S); }
+function setS(path, raw) {
+  const parts=path.split('.'); let obj=S;
+  for(let i=0;i<parts.length-1;i++) obj=obj[parts[i]];
+  const k=parts[parts.length-1], cur=obj[k];
+  if(typeof cur==='number') obj[k]=parseFloat(raw)||0;
+  else if(typeof cur==='boolean') obj[k]=raw===true||raw==='true';
+  else obj[k]=raw;
+  persist(); render();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HTML BUILDERS
+// ═══════════════════════════════════════════════════════════════════════
+
+function inp(id,label,val,unit='',{min,max,step,hint}={}) {
+  return `<div class="fg">
+    <label for="${id}">${label}${hint?`<span class="hint">${hint}</span>`:''}
+    </label>
+    <div class="iw">
+      <input type="number" id="${id}" value="${val}"
+        ${min!=null?`min="${min}"`:''}${max!=null?` max="${max}"`:''}${step!=null?` step="${step}"`:''}
+        class="${unit?'ur':'full'}" data-bind="${id}">
+      ${unit?`<span class="unit">${unit}</span>`:''}
+    </div>
+  </div>`;
+}
+
+function sel(id,label,val,opts) {
+  return `<div class="fg">
+    <label for="${id}">${label}</label>
+    <div class="iw">
+      <select id="${id}" class="full" data-bind="${id}">
+        ${opts.map(o=>`<option value="${o.v}"${o.v==val?' selected':''}>${o.l}</option>`).join('')}
+      </select>
+    </div>
+  </div>`;
+}
+
+function tog(path,label,checked,hint='') {
+  return `<button class="tog" data-action="toggle" data-path="${path}">
+    <div class="tog-text">
+      <div class="tog-label">${label}</div>
+      ${hint?`<div class="tog-hint">${hint}</div>`:''}
+    </div>
+    <div class="tog-track${checked?' on':''}"><div class="tog-thumb"></div></div>
+  </button>`;
+}
+
+function rr(label,val,unit='',col='amber') {
+  return `<div class="rr">
+    <span class="rl">${label}</span>
+    <span class="rv ${col}">${val}${unit?` <span class="rv-unit">${unit}</span>`:''}</span>
+  </div>`;
+}
+
+function bigResult(label,val,unit,col='') {
+  return `<div class="big-result">
+    <div class="big-result-label">${label}</div>
+    <div class="big-result-value${col?' '+col:''}">${val}${unit?`<span class="big-unit">${unit}</span>`:''}
+    </div>
+  </div>`;
+}
+
+function card(title,body,badge='') {
+  return `<div class="card">
+    <div class="card-title">${title}${badge?`<span>${badge}</span>`:''}</div>
+    ${body}
+  </div>`;
+}
+
+function badge(txt,cls) { return `<span class="badge ${cls}">${txt}</span>`; }
+
+function chips(items,activeProp,action) {
+  return `<div class="chips">${items.map(it=>`
+    <button class="chip${getS(activeProp)==it.v?' active':''}" data-action="${action}" data-value="${it.v}">
+      ${it.l}
+    </button>`).join('')}</div>`;
+}
+
+function chipsSm(items,activeProp,action) {
+  return `<div class="chips">${items.map(it=>`
+    <button class="chip chip-sm${getS(activeProp)==it.v?' active':''}" data-action="${action}" data-value="${it.v}">
+      ${it.l}
+    </button>`).join('')}</div>`;
+}
+
+function btnRow(saveAction,pdfAction) {
+  return `<div class="btn-row">
+    <button class="btn-save" data-action="${saveAction}">Save</button>
+    <button class="btn-export" data-action="${pdfAction}">Export PDF</button>
+  </div>`;
+}
+
+function infoBox(txt,cls='blue') {
+  return `<div class="info ${cls}">${txt}</div>`;
+}
+
+const VSEC_OPTS = [{v:208,l:'208 V'},{v:240,l:'240 V'},{v:277,l:'277 V'},{v:480,l:'480 V'},
+  {v:600,l:'600 V'},{v:2400,l:'2,400 V'},{v:4160,l:'4,160 V'},
+  {v:12470,l:'12,470 V'},{v:13200,l:'13,200 V'},{v:13800,l:'13,800 V'}];
+
+// ═══════════════════════════════════════════════════════════════════════
+// PAGE: TRANSFORMER
+// ═══════════════════════════════════════════════════════════════════════
+
+function pageTransformer() {
+  const x = S.xfmr, r = calcXfmr(x);
+  const faultCol = r.iscKA>=65?'red':r.iscKA>=22?'amber':'green';
+  const faultBadge = r.iscKA>=65?badge('≥65 kA — Check bus rating!','red'):r.iscKA>=22?badge('22–65 kA range','amber'):badge('≤22 kA range','green');
+  const kvaPresets = [45,75,112.5,150,225,300,500,750,1000,1500,2000,2500].map(v=>({v,l:v+' kVA'}));
+
+  return `<div class="page-header">
+    <div class="page-icon">⚡</div>
+    <div><div class="page-title">Transformer Fault Current Calculator</div>
+    <div class="page-sub">Full-load amps and symmetrical fault current at secondary terminals</div></div>
+  </div>
+  <div class="chips">${kvaPresets.map(it=>`
+    <button class="chip${x.kva==it.v?' active':''}" data-action="xfmr-kva" data-value="${it.v}">${it.l}</button>`).join('')}
+  </div>
+  <div class="two-col">
+    <div class="stack">
+      ${card('Transformer Parameters',`
+        <div class="stack">
+          ${inp('xfmr.kva','kVA Rating',x.kva,'kVA',{min:1,step:.5})}
+          ${sel('xfmr.phases','Phase Configuration',x.phases,[{v:3,l:'3-Phase (Delta or Wye)'},{v:1,l:'1-Phase'}])}
+          <div class="row2">
+            ${sel('xfmr.vPrimary','Primary Voltage',x.vPrimary,VSEC_OPTS)}
+            ${sel('xfmr.vSecondary','Secondary Voltage',x.vSecondary,VSEC_OPTS)}
+          </div>
+          ${inp('xfmr.zPercent','Impedance (%Z)',x.zPercent,'%',{min:.1,max:20,step:.01,hint:'Nameplate value'})}
+        </div>`)}
+      ${card('Utility Source Impedance',`
+        <div class="stack">
+          ${tog('xfmr.useUtility','Include Utility Source Impedance',x.useUtility,'Accounts for utility fault level at primary')}
+          ${x.useUtility?inp('xfmr.utilityFaultKA','Utility Available Fault at Primary',x.utilityFaultKA,'kA',{min:.1,step:.1}):''}
+        </div>`)}
+    </div>
+    <div class="stack">
+      ${card('Full Load Amps',`
+        ${rr('Primary FLA',f(r.flaP),'A')}
+        ${rr('Secondary FLA',f(r.flaS),'A')}`,badge(x.phases+'-Phase','gray'))}
+      ${card('Available Fault Current',`
+        ${rr('Fault Current (Infinite Bus)',f3(r.iscInfKA),'kA sym')}
+        ${r.iscUtilKA!=null?rr('Fault Current (w/ Utility Z)',f3(r.iscUtilKA),'kA sym'):''}
+        ${bigResult('Design Fault Current',f2(r.iscKA),'kA',faultCol)}
+        <div class="big-result-sub">Symmetrical RMS</div>`,faultBadge)}
+      ${card('Secondary-Referred Impedance',`
+        ${rr('%Z nameplate',f2(x.zPercent),'%')}
+        ${rr('Zt (secondary ohms)',f4((x.zPercent/100)*x.vSecondary*x.vSecondary/(x.kva*1000)),'Ω')}`)}
+      ${btnRow('save-xfmr','pdf-xfmr')}
+      ${infoBox('<strong>Note:</strong> Bolted fault at secondary terminals. For asymmetrical peak multiply by ~1.6×. Downstream cable impedance will reduce this value.')}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PAGE: CABLE
+// ═══════════════════════════════════════════════════════════════════════
+
+function pageCable() {
+  const c = S.cable, r = calcCable(c);
+  const limit = c.isFeeder?5:3;
+  const pass = r?r.vdPct<=limit:null;
+  const ampOk = r&&r.amp?c.loadAmps<=r.amp:null;
+  const vdCol = pass?'green':'red';
+  const passBadge = pass!=null?(pass?badge(`PASS ≤${limit}%`,'green'):badge(`FAIL >${limit}%`,'red')):'';
+
+  return `<div class="page-header">
+    <div class="page-icon">🔌</div>
+    <div><div class="page-title">Cable Impedance &amp; Voltage Drop</div>
+    <div class="page-sub">NEC 2023 Table 9 conductor impedance — 75°C</div></div>
+  </div>
+  <div class="two-col">
+    <div class="stack">
+      ${card('Conductor Selection',`
+        <div class="stack">
+          ${sel('cable.size','Conductor Size',c.size,SIZES.map(s=>({v:s,l:s})))}
+          <div class="row2">
+            ${sel('cable.material','Material',c.material,[{v:'copper',l:'Copper (Cu)'},{v:'aluminum',l:'Aluminum (Al)'}])}
+            ${sel('cable.conduit','Conduit',c.conduit,[{v:'steel',l:'Steel (Magnetic)'},{v:'pvc',l:'PVC (Non-magnetic)'}])}
+          </div>
+        </div>`)}
+      ${card('Circuit Parameters',`
+        <div class="stack">
+          <div class="row2">
+            ${inp('cable.lengthFt','One-Way Length',c.lengthFt,'ft',{min:1})}
+            ${inp('cable.loadAmps','Load Current',c.loadAmps,'A',{min:.1,step:.5})}
+          </div>
+          <div class="row2">
+            ${sel('cable.phases','Phase',c.phases,[{v:3,l:'3-Phase'},{v:1,l:'1-Phase'}])}
+            ${inp('cable.voltage','System Voltage',c.voltage,'V',{min:100})}
+          </div>
+          ${inp('cable.pf','Power Factor',c.pf,'p.u.',{min:.5,max:1,step:.01,hint:'0.70–0.95 typical'})}
+          ${tog('cable.isFeeder','Feeder Circuit',c.isFeeder,'Feeder: 5% limit | Branch: 3% limit')}
+        </div>`)}
+    </div>
+    <div class="stack">
+      ${r?`
+        ${card('Conductor Properties (NEC Table 9)',`
+          ${rr('Resistance (R)',f4(r.ri),'Ω/1000 ft')}
+          ${rr('Reactance (X)',f4(r.xi),'Ω/1000 ft')}
+          ${rr('Impedance |Z|',f4(Math.sqrt(r.ri**2+r.xi**2)),'Ω/1000 ft')}
+          ${rr('Ampacity (75°C)',r.amp??'N/A','A',ampOk===false?'red':ampOk===true?'green':'amber')}`,badge(c.conduit==='steel'?'Steel Conduit':'PVC Conduit','gray'))}
+        ${card('Voltage Drop Analysis',`
+          ${rr('Total Resistance ('+c.lengthFt+' ft)',f4(r.rT),'Ω')}
+          ${rr('Total Reactance',f4(r.xT),'Ω')}
+          ${rr('Total Impedance |Z|',f4(r.zT),'Ω')}
+          ${rr('Voltage Drop',f2(r.vdT),'V')}
+          <div class="big-result">
+            <div style="display:flex;align-items:flex-end;justify-content:space-between">
+              <div>
+                <div class="big-result-label">Voltage Drop %</div>
+                <div class="big-result-value ${vdCol}">${f2(r.vdPct)}<span class="big-unit">%</span></div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:.5625rem;color:var(--text3)">Limit</div>
+                <div style="font-family:var(--mono);font-size:1.25rem;font-weight:700;color:var(--text2)">${limit}%</div>
+                <div style="font-size:.5rem;color:var(--text3)">${c.isFeeder?'Feeder':'Branch'}</div>
+              </div>
+            </div>
+            <div class="vd-bar"><div class="vd-bar-fill ${vdCol}" style="width:${Math.min(r.vdPct/(limit*2)*100,100)}%"></div></div>
+          </div>`,passBadge)}
+        ${btnRow('save-cable','pdf-cable')}
+      `:`<div class="card" style="text-align:center;color:var(--text3);padding:2rem">
+        Not available for this material/size combination.
+      </div>`}
+      ${infoBox('<strong>Reference:</strong> NEC 2023 Ch.9 Table 9 at 75°C. Two-way length used automatically. NEC recommends ≤3% branch, ≤5% total.')}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PAGE: MOTOR
+// ═══════════════════════════════════════════════════════════════════════
+
+function pageMotor() {
+  const m = S.motor, r = calcMotor(m);
+  const combined = m.includeBase&&m.baseFaultKA>0?{base:m.baseFaultKA,total:m.baseFaultKA+r.cKA}:null;
+  const hpPresets = [1,5,10,15,25,50,75,100,150,200,250,350,500].map(v=>({v,l:v+' HP'}));
+
+  return `<div class="page-header">
+    <div class="page-icon">⚙</div>
+    <div><div class="page-title">Motor Contribution Estimator</div>
+    <div class="page-sub">Induction motor contribution to available fault current</div></div>
+  </div>
+  <div class="chips">${hpPresets.map(it=>`
+    <button class="chip${m.hp==it.v?' active':''}" data-action="motor-hp" data-value="${it.v}">${it.l}</button>`).join('')}
+  </div>
+  <div class="two-col">
+    <div class="stack">
+      ${card('Motor Parameters',`
+        <div class="stack">
+          ${inp('motor.hp','Motor Rating',m.hp,'HP',{min:.5,step:.5})}
+          <div class="row2">
+            ${sel('motor.phases','Phase',m.phases,[{v:3,l:'3-Phase'},{v:1,l:'1-Phase'}])}
+            ${inp('motor.voltage','Voltage',m.voltage,'V',{min:100})}
+          </div>
+          <div class="row2">
+            ${inp('motor.efficiency','Efficiency',m.efficiency,'p.u.',{min:.5,max:1,step:.01})}
+            ${inp('motor.pf','Power Factor',m.pf,'p.u.',{min:.5,max:1,step:.01})}
+          </div>
+          ${sel('motor.multiplier','Fault Contribution Multiplier',m.multiplier,[
+            {v:3.6,l:'3.6× — IEEE 1584 default (motor terminals)'},
+            {v:4.0,l:'4.0× — ANSI/IEEE C37 general use'},
+            {v:4.8,l:'4.8× — Conservative / large synchronous motors'},
+            {v:6.0,l:'6.0× — Synchronous generators'},
+          ])}
+        </div>`)}
+      ${card('Combined Fault',`
+        <div class="stack">
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.6875rem;color:var(--text2);cursor:pointer">
+            <input type="checkbox" data-bind="motor.includeBase"${m.includeBase?' checked':''}>
+            Combine with utility/transformer fault current
+          </label>
+          ${m.includeBase?inp('motor.baseFaultKA','Base System Fault Current',m.baseFaultKA,'kA',{min:0,step:.1}):''}
+        </div>`)}
+    </div>
+    <div class="stack">
+      ${card('Motor Full Load Amps',`
+        ${rr('Full Load Amps (FLA)',f(r.fla),'A')}
+        <div style="font-size:.5625rem;color:var(--text3);margin-top:.375rem">
+          = (${m.hp} HP × 746) / (${m.phases===3?'√3 × ':''}${m.voltage}V × ${(m.efficiency*100).toFixed(0)}% × ${(m.pf*100).toFixed(0)}%)
+        </div>`)}
+      ${card('Fault Contribution',`
+        ${rr('Contribution (A)',f(r.cA),'A')}
+        ${bigResult('Motor Contribution',f3(r.cKA),'kA')}`,badge(m.multiplier+'× FLA','amber'))}
+      ${combined?card('Combined System Fault',`
+        ${rr('Utility/Transformer Base',f3(combined.base),'kA')}
+        ${rr('Motor Contribution',f3(r.cKA),'kA')}
+        ${bigResult('Total Available Fault',f3(combined.total),'kA','red')}`,badge('Utility + Motor','orange')):''}
+      ${btnRow('save-motor','pdf-motor')}
+      ${infoBox('<strong>Note:</strong> Induction motor contribution decays in 5–8 cycles. Use 4.0× for initial symmetrical studies. Synchronous motors require separate treatment per IEEE C37.010.','amber')}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PAGE: ARC FLASH
+// ═══════════════════════════════════════════════════════════════════════
+
+function pageArc() {
+  const a = S.arc;
+  const valid = a.ibfKA>=.7&&a.ibfKA<=106&&a.voltageKV>=.208&&a.voltageKV<=15;
+  const r = valid?calcArc(a):null;
+  const cat = r?r.cat:null;
+  const pp = cat!=null?PPE_INFO[Math.min(cat,5)]:null;
+  const eCol = cat>=3?'red':cat>=2?'amber':cat>=1?'amber':'green';
+  const gapPresets = [{v:25,l:'MCC/Panel (25mm)'},{v:32,l:'LV Switchgear (32mm)'},{v:104,l:'5kV MV (104mm)'},{v:152,l:'15kV MV (152mm)'}];
+  const distPresets = [{v:18,l:'18 in — Panelboard'},{v:24,l:'24 in — LV Swgr'},{v:36,l:'36 in — MV Swgr'},{v:48,l:'48 in — MV Bus'}];
+  const voltOpts = [{v:.208,l:'208 V'},{v:.24,l:'240 V'},{v:.48,l:'480 V'},{v:.6,l:'600 V'},
+    {v:2.4,l:'2,400 V'},{v:4.16,l:'4,160 V'},{v:7.2,l:'7,200 V'},
+    {v:12.47,l:'12,470 V'},{v:13.2,l:'13,200 V'},{v:13.8,l:'13,800 V'}];
+
+  return `<div class="page-header">
+    <div class="page-icon">⚠</div>
+    <div><div class="page-title">Incident Energy Calculator</div>
+    <div class="page-sub">IEEE 1584-2002 simplified method — scoping estimates only</div></div>
+  </div>
+  ${infoBox('<strong>⚠ Important:</strong> IEEE 1584-2002 simplified equations. A complete arc flash study per IEEE 1584-2018 is required for labeling and PPE selection. Valid range: 0.208–15 kV, 0.7–106 kA.','red')}
+  <div class="two-col" style="margin-top:1.25rem">
+    <div class="stack">
+      ${card('System Parameters',`
+        <div class="stack">
+          ${inp('arc.ibfKA','Available Bolted Fault Current',a.ibfKA,'kA',{min:.7,max:106,step:.1,hint:'0.7–106 kA'})}
+          ${sel('arc.voltageKV','System Voltage',a.voltageKV,voltOpts)}
+          ${sel('arc.config','Electrode Configuration',a.config,[{v:'box',l:'In Enclosure / Box (switchgear, MCC, panelboard)'},{v:'open',l:'Open Air / Bus (exposed conductors)'}])}
+          ${tog('arc.grounded','Solidly Grounded System',a.grounded,'Uncheck for ungrounded or HRG systems')}
+        </div>`)}
+      ${card('Gap &amp; Working Distance',`
+        <div class="stack">
+          <div class="fg"><div class="lbl">Gap Presets</div>
+            <div class="chips" style="margin-bottom:0">${gapPresets.map(it=>`
+              <button class="chip chip-sm${a.gapMM==it.v?' active':''}" data-action="arc-gap" data-value="${it.v}">${it.l}</button>`).join('')}
+            </div>
+          </div>
+          ${inp('arc.gapMM','Conductor Gap',a.gapMM,'mm',{min:6.35,max:250,step:1,hint:'IEEE 1584 Table 1: 13–152mm typical'})}
+          ${inp('arc.durationCycles','Arc Duration',a.durationCycles,'cycles',{min:.5,max:120,step:.5,hint:'1 cycle = 16.7 ms @ 60 Hz'})}
+          <div class="fg"><div class="lbl">Working Distance Presets</div>
+            <div class="chips" style="margin-bottom:0">${distPresets.map(it=>`
+              <button class="chip chip-sm${a.workingDistanceIn==it.v?' active':''}" data-action="arc-dist" data-value="${it.v}">${it.l}</button>`).join('')}
+            </div>
+          </div>
+          ${inp('arc.workingDistanceIn','Working Distance',a.workingDistanceIn,'in',{min:6,step:1,hint:'NFPA 70E Table 130.7(C)(15)(a)'})}
+        </div>`)}
+    </div>
+    <div class="stack">
+      ${!valid?infoBox('Input values outside IEEE 1584-2002 valid range. Fault current: 0.7–106 kA, Voltage: 0.208–15 kV.','amber'):''}
+      ${r&&pp?`
+        <div class="ppe-banner ${pp.cls}">
+          <div class="ppe-cat-head">
+            <div class="ppe-cat-num">${cat<=4?cat:'!'}</div>
+            <div>
+              <div class="ppe-cat-label">${pp.label}</div>
+              <div class="ppe-cat-range">${pp.range} — Min Rating: ${pp.minAR}</div>
+            </div>
+          </div>
+          ${pp.clothing.map(c=>`<div class="ppe-item"><span class="ppe-item-dot">▶</span>${c}</div>`).join('')}
+          ${pp.equip.map(c=>`<div class="ppe-item" style="color:var(--text3)"><span class="ppe-item-dot" style="color:var(--text3)">▶</span>${c}</div>`).join('')}
+        </div>
+        ${card('Arc Flash Results',`
+          ${rr('Arcing Current',f3(r.Ia),'kA')}
+          ${rr('Arc Duration',f(r.tMs,1),'ms')}
+          ${rr('Arc Flash Boundary',f(r.afbFt,1),'ft','amber')}
+          ${rr('Arc Flash Boundary',f(r.afbIn,1),'in')}
+          <div class="big-result">
+            <div class="big-result-label">Incident Energy at ${a.workingDistanceIn}" distance</div>
+            <div class="big-result-value ${eCol}" style="font-size:2.5rem">${f2(r.E)}<span class="big-unit">cal/cm²</span></div>
+          </div>`)}
+        ${btnRow('save-arc','pdf-arc')}
+      `:''}
+      ${infoBox('<strong>Method:</strong> IEEE 1584-2002 equations. Arc flash duration is the critical variable — verify protective device clearing times separately.','amber')}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// QUICK REFERENCE PAGES
+// ═══════════════════════════════════════════════════════════════════════
+
+function pageRefEquipment() {
+  return `<div class="page-header"><div class="page-icon">🔲</div>
+    <div><div class="page-title">Equipment Bus Ratings</div>
+    <div class="page-sub">UL 67 · UL 891 · UL 845 · IEEE C37</div></div></div>
+  <div class="ref-intro">Standard short circuit current ratings (SCCR / AIC). Verify with equipment nameplate — AIC ratings vary by manufacturer and configuration.</div>
+  <div class="tbl-wrap">
+    <table class="ref">
+      <thead><tr><th>Equipment Type</th><th>Example Products</th><th>Voltage</th><th>Standard AIC Ratings</th><th>Notes</th></tr></thead>
+      <tbody>${EQ_DATA.map(r=>`<tr>
+        <td class="td-name">${r.t}</td>
+        <td class="td-muted">${r.ex}</td>
+        <td class="td-mono">${r.v}</td>
+        <td><div class="ratings-wrap">${r.r.map(x=>`<span class="rating-chip">${x}</span>`).join('')}</div></td>
+        <td class="td-muted">${r.n}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>
+  <div class="ref-note">Common standard ratings: 10 kA · 14 kA · 22 kA · 42 kA · 65 kA · 85 kA · 100 kA (UL 489). Equipment must be rated ≥ available fault current at its installation point.</div>`;
+}
+
+function pageRefPPE() {
+  const cats = [
+    {n:1,cls:'c1',r:'1.2 – 4 cal/cm²',m:'4 cal/cm²',
+      body:['Arc-rated shirt & pants OR coverall (min 4 cal/cm²)','Arc-rated faceshield (min 4 cal/cm²) OR arc flash hood'],
+      face:['Arc-rated faceshield (min 4 cal/cm²)','OR arc flash suit hood'],
+      other:['Safety glasses (under faceshield)','Hard hat (Class E)','Leather or Class 0 RIG + leather protectors','Leather work shoes'],
+      tasks:['Operating bolted breakers/disconnects','Taking voltage readings','Reading panel meters','Racking breakers (de-energized)']},
+    {n:2,cls:'c2',r:'4 – 8 cal/cm²',m:'8 cal/cm²',
+      body:['Arc-rated shirt & pants + coverall (total ≥ 8 cal/cm²)','Arc-rated faceshield + balaclava OR arc flash hood'],
+      face:['Arc-rated faceshield + balaclava (≥ 8 cal/cm²)','OR arc flash suit hood'],
+      other:['Safety glasses','Hard hat','Class 0 RIG + leather protectors','Leather work shoes','Hearing protection'],
+      tasks:['Removing covers from energized equipment','Opening/closing 480V MCC buckets','Racking breakers in 480V switchgear','Connecting leads at 480V']},
+    {n:3,cls:'c3',r:'8 – 25 cal/cm²',m:'25 cal/cm²',
+      body:['Arc-rated layered clothing system (min 25 cal/cm²)','Arc flash suit hood required'],
+      face:['Arc flash suit hood (≥ 25 cal/cm²)'],
+      other:['Safety glasses inside hood','Hard hat inside hood','Class 2 RIG + leather protectors','Leather work boots','Hearing protection'],
+      tasks:['Working on energized 5 kV equipment','Breaker racking in 5 kV switchgear','Bus work on MV equipment','Live testing on 5 kV gear']},
+    {n:4,cls:'c4',r:'25 – 40 cal/cm²',m:'40 cal/cm²',
+      body:['Full arc flash suit system (min 40 cal/cm²)','Multi-layer arc-rated clothing under suit'],
+      face:['Arc flash suit hood rated ≥ 40 cal/cm²'],
+      other:['Safety glasses inside hood','Hard hat inside hood','Class 2+ RIG + leather protectors','Leather work boots','Hearing protection'],
+      tasks:['Working on energized 15 kV equipment','Breaker racking in 15 kV switchgear','High fault current bus work','Primary voltage splicing/terminations']},
+  ];
+  return `<div class="page-header"><div class="page-icon">🛡</div>
+    <div><div class="page-title">PPE Categories</div>
+    <div class="page-sub">NFPA 70E-2021 Table 130.5(G)</div></div></div>
+  <div class="ref-intro">When incident energy exceeds 40 cal/cm², Category 4 equipment is insufficient — de-energizing or engineering controls required.</div>
+  ${cats.map(c=>`
+    <div class="ppe-ref-card ${c.cls}">
+      <div class="ppe-ref-head">
+        <div class="ppe-ref-num">${c.n}</div>
+        <div>
+          <div class="ppe-ref-title">PPE Category ${c.n}</div>
+          <div class="ppe-ref-range">${c.r} — Min AR clothing: <strong>${c.m}</strong></div>
+        </div>
+      </div>
+      <div class="ppe-ref-cols">
+        <div>
+          <div class="ppe-ref-col-title">Body Protection</div>
+          ${c.body.map(x=>`<div class="ppe-ref-item"><span>▶</span>${x}</div>`).join('')}
+        </div>
+        <div>
+          <div class="ppe-ref-col-title">Face / Head &amp; Other PPE</div>
+          ${c.face.map(x=>`<div class="ppe-ref-item"><span>▶</span>${x}</div>`).join('')}
+          <div class="ppe-ref-col-title" style="margin-top:.5rem">Other PPE</div>
+          ${c.other.map(x=>`<div class="ppe-ref-item" style="color:var(--text3)"><span>▶</span>${x}</div>`).join('')}
+        </div>
+        <div>
+          <div class="ppe-ref-col-title">Example Tasks</div>
+          ${c.tasks.map(x=>`<div class="ppe-ref-item" style="color:var(--text3)"><span>—</span>${x}</div>`).join('')}
+        </div>
+      </div>
+    </div>`).join('')}`;
+}
+
+function pageRefApproach() {
+  return `<div class="page-header"><div class="page-icon">📏</div>
+    <div><div class="page-title">Approach Boundaries</div>
+    <div class="page-sub">NFPA 70E-2021 Table 130.4(E)(a)</div></div></div>
+  <div class="ref-intro">Approach limit distances from energized conductors or circuit parts. Distances include body, tools, equipment, and lead wires.</div>
+  <div class="approach-cards">
+    <div class="approach-card yellow">
+      <div class="approach-card-title">Limited Approach Boundary</div>
+      <div class="approach-card-desc">Unqualified persons must not cross without escort by a qualified person.</div>
+    </div>
+    <div class="approach-card orange">
+      <div class="approach-card-title">Restricted Approach Boundary</div>
+      <div class="approach-card-desc">Qualified persons only. Shock protection required. Insulated tools, rubber insulating equipment.</div>
+    </div>
+    <div class="approach-card red">
+      <div class="approach-card-title">Prohibited Approach Boundary</div>
+      <div class="approach-card-desc">Treated as direct contact with energized part. Full PPE required. Special work permits.</div>
     </div>
   </div>
+  <div class="tbl-wrap">
+    <table class="ref">
+      <thead><tr><th>Nominal Voltage (Phase-to-Phase)</th><th>Limited Approach</th><th>Restricted Approach</th><th>Prohibited Approach</th></tr></thead>
+      <tbody>${APR_DATA.map(r=>`<tr>
+        <td class="td-name">${r.v}</td>
+        <td style="font-family:var(--mono);color:#eab308;font-size:.6875rem">${r.lim}</td>
+        <td style="font-family:var(--mono);color:var(--orange);font-size:.6875rem">${r.res}</td>
+        <td style="font-family:var(--mono);color:var(--red);font-size:.6875rem">${r.proh}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>
+  <div class="ref-note">Source: NFPA 70E-2021 Table 130.4(E)(a). State regulations may differ. Verify with current NFPA 70E and OSHA 29 CFR 1910.333 / 1926.403.</div>`;
+}
 
-  <script type="module" src="./js/app.js"></script>
+function pageRefDevice() {
+  const typePill = t => `<span class="type-pill ${t}">${t.charAt(0).toUpperCase()+t.slice(1)}</span>`;
+  return `<div class="page-header"><div class="page-icon">⏱</div>
+    <div><div class="page-title">Protective Device Times</div>
+    <div class="page-sub">IEEE C37 · ANSI device time reference</div></div></div>
+  <div class="ref-intro">Typical protective device clearing times. Incident energy is proportional to arc duration — shorter clearing = less energy.</div>
+  <div class="tbl-wrap">
+    <table class="ref">
+      <thead><tr><th>Device</th><th>Type</th><th>Instantaneous</th><th>Short-Time Delay</th><th>Long-Time Delay</th><th>Notes</th></tr></thead>
+      <tbody>${DEV_DATA.map(r=>`<tr>
+        <td class="td-name" style="font-size:.5625rem">${r.d}</td>
+        <td>${typePill(r.t)}</td>
+        <td class="${r.i==='—'?'td-none':'td-inst'}">${r.i}</td>
+        <td class="${r.s==='—'?'td-none':'td-st'}">${r.s}</td>
+        <td class="${r.l==='—'?'td-none':'td-lt'}">${r.l}</td>
+        <td class="td-muted">${r.n}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>
+  <div class="device-two">
+    <div class="device-card">
+      <div class="device-card-title">Arc Flash Reduction Strategies</div>
+      ${['Zone-selective interlocking (ZSI) — removes ST delay for zone faults',
+         'Maintenance mode setting — reduces instantaneous pickup temporarily',
+         'Bus differential protection — fastest clearing for bus faults',
+         'Current-limiting fuses — &lt;¼ cycle clearing; best for arc flash reduction',
+         'High-resistance grounding (HRG) — limits ground fault arc to &lt;1A',
+      ].map(x=>`<div class="device-item"><span class="device-dot">▶</span>${x}</div>`).join('')}
+    </div>
+    <div class="device-card">
+      <div class="device-card-title">Common Arc Duration Assumptions</div>
+      ${['2 cycles (33 ms) — CL fuse or inst. breaker at high fault current',
+         '6 cycles (100 ms) — Well-coordinated LV system',
+         '12 cycles (200 ms) — Relay + breaker combination (MV)',
+         '30 cycles (500 ms) — Short-time delay with coordination',
+         '60+ cycles (≥1 s) — Over-fused or improperly coordinated systems',
+      ].map(x=>`<div class="device-item"><span class="device-dot">▶</span>${x}</div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PAGE: SAVED
+// ═══════════════════════════════════════════════════════════════════════
+
+function pageSaved() {
+  const saved = S.saved;
+  const TYPE_BADGE = {
+    'Transformer Fault Current':'amber','Cable Impedance & VD':'gray',
+    'Motor Contribution':'gray','Arc Flash Incident Energy':'red'
+  };
+  const METRIC_COLORS = {amber:'amber',green:'green',red:'red'};
+
+  function metricVal(v,col) { return `<div class="metric-val${col?' '+col:''}">${v}</div>`; }
+  function metric(lbl,val,col) { return `<div class="metric"><div class="metric-lbl">${lbl}</div>${metricVal(val,col)}</div>`; }
+
+  function metrics(c) {
+    const {type:t,inputs:i,results:r} = c;
+    if(t==='Transformer Fault Current') return `
+      ${metric('kVA',i.kva,'')}${metric('Sec. Voltage',i.vSecondary+'V','')}
+      ${metric('%Z',i.zPercent+'%','')}${metric('Fault Current',f2(r.iscKA)+' kA','amber')}`;
+    if(t==='Cable Impedance & VD') {
+      const lim=i.isFeeder?5:3,pass2=r.vdPct<=lim;
+      return `${metric('Size',i.size,'')}${metric('Length',i.lengthFt+'ft','')}
+        ${metric('Load',i.loadAmps+'A','')}${metric('VD%',f2(r.vdPct)+'%',pass2?'green':'red')}`;
+    }
+    if(t==='Motor Contribution') return `
+      ${metric('HP',i.hp+' HP','')}${metric('Voltage',i.voltage+'V','')}
+      ${metric('FLA',f(r.fla,1)+' A','')}${metric('Contrib.',f3(r.cKA)+' kA','amber')}`;
+    if(t==='Arc Flash Incident Energy') return `
+      ${metric('Fault',i.ibfKA+' kA','')}${metric('Voltage',(i.voltageKV*1000).toFixed(0)+'V','')}
+      ${metric('Duration',i.durationCycles+' cyc','')}${metric('Energy',f2(r.E)+' cal/cm²',r.cat>=3?'red':'')}`;
+    return '';
+  }
+
+  function detail(c) {
+    const {inputs:i,results:r} = c;
+    const iRows = Object.entries(i).map(([k,v])=>`<div class="saved-detail-row"><span class="saved-detail-key">${k}</span><span class="saved-detail-val">${v}</span></div>`).join('');
+    const rRows = Object.entries(r).map(([k,v])=>`<div class="saved-detail-row"><span class="saved-detail-key">${k}</span><span class="saved-detail-val">${typeof v==='number'?f4(v):v}</span></div>`).join('');
+    return `<div class="saved-detail"><div class="saved-detail-grid">
+      <div><div class="saved-detail-section">Inputs</div>${iRows}</div>
+      <div><div class="saved-detail-section">Results</div>${rRows}</div>
+    </div></div>`;
+  }
+
+  const list = [...saved].reverse().map((c,ri)=>{
+    const i = saved.length-1-ri;
+    const d = new Date(c.timestamp);
+    const bc = TYPE_BADGE[c.type]||'gray';
+    const exp = S.ui.expanded[i];
+    return `<div class="saved-card">
+      <div class="saved-card-head">
+        <div class="saved-card-meta">
+          <span class="badge ${bc}">${c.type}</span>
+          <span class="saved-card-date">${d.toLocaleDateString()} ${d.toLocaleTimeString()}</span>
+        </div>
+        <div class="saved-card-actions">
+          <button class="btn-pdf" data-action="saved-pdf" data-idx="${i}">↓ PDF</button>
+          <button class="btn-del" data-action="saved-del" data-idx="${i}">✕</button>
+          <button class="btn-expand" data-action="saved-expand" data-idx="${i}">${exp?'▲':'▼'}</button>
+        </div>
+      </div>
+      <div class="saved-metrics">${metrics(c)}</div>
+      ${exp?detail(c):''}
+    </div>`;
+  }).join('');
+
+  return `<div class="page-header"><div class="page-icon">📋</div>
+    <div><div class="page-title">Saved Calculations</div>
+    <div class="page-sub">Calculation history stored in browser localStorage</div></div></div>
+  ${saved.length===0?`<div class="saved-empty"><div class="saved-empty-icon">📋</div>
+    <div>No saved calculations yet.</div>
+    <div style="font-size:.6875rem;margin-top:.25rem">Use the Save button in any calculator.</div>
+  </div>`:`
+    <div class="saved-top">
+      <div class="saved-count">${saved.length} calculation${saved.length!==1?'s':''} saved</div>
+      <button class="btn-del" data-action="saved-clear" style="font-size:.6875rem;border:none">Clear all</button>
+    </div>
+    ${list}`}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SIDEBAR & LAYOUT
+// ═══════════════════════════════════════════════════════════════════════
+
+const NAV = [
+  {section:'Calculators',items:[
+    {id:'transformer',lbl:'Transformer Fault Current',ic:'⚡'},
+    {id:'cable',lbl:'Cable Impedance & VD',ic:'🔌'},
+    {id:'motor',lbl:'Motor Contribution',ic:'⚙'},
+    {id:'arcflash',lbl:'Incident Energy',ic:'⚠'},
+  ]},
+  {section:'Quick Reference',items:[
+    {id:'ref-equipment',lbl:'Equipment Bus Ratings',ic:'🔲'},
+    {id:'ref-ppe',lbl:'PPE Categories',ic:'🛡'},
+    {id:'ref-approach',lbl:'Approach Boundaries',ic:'📏'},
+    {id:'ref-protective',lbl:'Protective Device Times',ic:'⏱'},
+  ]},
+  {section:'History',items:[
+    {id:'saved',lbl:'Saved Calculations',ic:'📋'},
+  ]},
+];
+
+function buildSidebar() {
+  const navItems = NAV.map(group=>`
+    <div class="sb-section" data-action="sb-section" data-section="${group.section}">${group.section}</div>
+    ${group.items.map(it=>`
+      <button class="sb-item${S.page===it.id?' active':''}" data-action="nav" data-page="${it.id}">
+        <span class="ic">${it.ic}</span>
+        <span>${it.lbl}</span>
+        ${it.id==='saved'&&S.saved.length>0?`<span class="sb-badge">${S.saved.length}</span>`:''}
+      </button>`).join('')}
+  `).join('');
+
+  return `<div id="sidebar"${S.ui.sidebarOpen?' class="open"':''}>
+    <div class="sb-logo">
+      <div class="sb-icon">⚡</div>
+      <div><div class="sb-name">ARC FLASH</div><div class="sb-sub">QUICK REFERENCE</div></div>
+    </div>
+    <nav class="sb-nav">${navItems}</nav>
+    <div class="sb-foot">IEEE 1584 · NEC 2023<br>NFPA 70E 2021 · For reference only.</div>
+  </div>`;
+}
+
+function buildPage() {
+  switch(S.page) {
+    case 'transformer':    return pageTransformer();
+    case 'cable':          return pageCable();
+    case 'motor':          return pageMotor();
+    case 'arcflash':       return pageArc();
+    case 'ref-equipment':  return pageRefEquipment();
+    case 'ref-ppe':        return pageRefPPE();
+    case 'ref-approach':   return pageRefApproach();
+    case 'ref-protective': return pageRefDevice();
+    case 'saved':          return pageSaved();
+    default:               return pageTransformer();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PDF EXPORT
+// ═══════════════════════════════════════════════════════════════════════
+
+function printWindow(title, rows) {
+  const w = window.open('','_blank','width=800,height=700');
+  w.document.write(`<!doctype html><html><head><title>${title}</title><style>
+    body{font-family:system-ui,sans-serif;background:#fff;color:#111;padding:2rem;max-width:700px;margin:0 auto}
+    h1{color:#b45309;font-size:1.25rem;margin:0 0 .25rem;border-bottom:2px solid #f59e0b;padding-bottom:.5rem}
+    .sub{color:#6b7280;font-size:.75rem;margin-bottom:1.5rem}
+    table{width:100%;border-collapse:collapse;margin:1rem 0}
+    th{text-align:left;font-size:.6875rem;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;padding:.4rem .75rem;background:#f9fafb;border-bottom:1px solid #e5e7eb}
+    td{padding:.4rem .75rem;border-bottom:1px solid #f3f4f6;font-size:.8125rem}
+    td.val{font-family:monospace;font-weight:700;color:#b45309}
+    .warn{background:#fffbeb;border:1px solid #fcd34d;padding:.75rem;border-radius:.375rem;font-size:.75rem;color:#92400e;margin-bottom:1.5rem}
+    @media print{.no-print{display:none}}
+  </style></head><body>
+  <h1>⚡ ${title}</h1>
+  <div class="sub">IEEE 1584 · NEC 2023 · NFPA 70E 2021 &nbsp;|&nbsp; Generated: ${new Date().toLocaleString()}</div>
+  ${rows.map(r=>r.type==='warn'?`<div class="warn">⚠ ${r.text}</div>`:
+    r.type==='head'?`<h2 style="font-size:.875rem;color:#374151;margin:.875rem 0 0;border-top:1px solid #e5e7eb;padding-top:.875rem">${r.text}</h2>`:
+    `<table><tr><th style="width:60%">Parameter</th><th>Value</th><th>Unit</th></tr>
+    ${r.rows.map(([l,v,u])=>`<tr><td>${l}</td><td class="val">${v}</td><td style="color:#9ca3af;font-size:.6875rem">${u||''}</td></tr>`).join('')}
+    </table>`).join('')}
+  <button class="no-print" onclick="window.print()" style="background:#f59e0b;border:none;padding:.5rem 1.5rem;border-radius:.375rem;cursor:pointer;font-weight:700;margin-top:1rem">
+    Print / Save as PDF
+  </button>
+  </body></html>`);
+  w.document.close();
+}
+
+function pdfXfmr() {
+  const x=S.xfmr, r=calcXfmr(x);
+  printWindow('Transformer Fault Current Calculation',[
+    {type:'head',text:'Input Parameters'},
+    {rows:[['kVA Rating',x.kva,'kVA'],['Primary Voltage',x.vPrimary,'V'],['Secondary Voltage',x.vSecondary,'V'],
+      ['Impedance %Z',x.zPercent.toFixed(2),'%'],['Phase',x.phases+'-Phase',''],
+      ...(x.useUtility?[['Utility Fault at Primary',x.utilityFaultKA.toFixed(2),'kA']]:[])]},
+    {type:'head',text:'Results'},
+    {rows:[['Primary FLA',f(r.flaP,1),'A'],['Secondary FLA',f(r.flaS,1),'A'],
+      ['Fault Current (Infinite Bus)',f3(r.iscInfKA),'kA sym'],
+      ...(r.iscUtilKA!=null?[['Fault Current (w/ Utility Z)',f3(r.iscUtilKA),'kA sym']]:[]),
+      ['Design Fault Current',f2(r.iscKA),'kA sym']]},
+  ]);
+}
+
+function pdfCable() {
+  const c=S.cable, r=calcCable(c);
+  if(!r) return;
+  const lim=c.isFeeder?5:3, pass=r.vdPct<=lim;
+  printWindow('Cable Impedance & Voltage Drop Calculation',[
+    {type:'head',text:'Input Parameters'},
+    {rows:[['Conductor Size',c.size,''],['Material',c.material,''],['Conduit Type',c.conduit,''],
+      ['One-Way Length',c.lengthFt.toFixed(0),'ft'],['Load Current',c.loadAmps.toFixed(1),'A'],
+      ['System Voltage',c.voltage.toFixed(0),'V'],['Power Factor',(c.pf*100).toFixed(0),'%'],
+      ['Circuit Type',c.isFeeder?'Feeder (5% limit)':'Branch (3% limit)','']]},
+    {type:'head',text:'Results'},
+    {rows:[['R per 1000 ft',f4(r.ri),'Ω/1000ft'],['X per 1000 ft',f4(r.xi),'Ω/1000ft'],
+      ['Total Resistance',f4(r.rT),'Ω'],['Total Reactance',f4(r.xT),'Ω'],
+      ['Voltage Drop',f2(r.vdT),'V'],['Voltage Drop %',f2(r.vdPct),'%'],
+      [`Result (limit: ${lim}%)`,pass?'PASS':'FAIL','']]},
+  ]);
+}
+
+function pdfMotor() {
+  const m=S.motor, r=calcMotor(m);
+  const comb=m.includeBase&&m.baseFaultKA>0?{base:m.baseFaultKA,total:m.baseFaultKA+r.cKA}:null;
+  printWindow('Motor Contribution Estimation',[
+    {type:'head',text:'Input Parameters'},
+    {rows:[['Motor Rating',m.hp,'HP'],['System Voltage',m.voltage,'V'],
+      ['Efficiency',(m.efficiency*100).toFixed(0),'%'],['Power Factor',(m.pf*100).toFixed(0),'%'],
+      ['Multiplier',m.multiplier+'×','']]},
+    {type:'head',text:'Results'},
+    {rows:[['Full Load Amps (FLA)',f(r.fla,1),'A'],['Contribution',f(r.cA,1),'A'],['Contribution',f3(r.cKA),'kA'],
+      ...(comb?[['Base Fault',f3(comb.base),'kA'],['Combined Fault',f3(comb.total),'kA sym']]:[])]},
+  ]);
+}
+
+function pdfArc() {
+  const a=S.arc, r=calcArc(a);
+  const cats=['Below Threshold','CAT 1','CAT 2','CAT 3','CAT 4','DANGEROUS'];
+  printWindow('Arc Flash Incident Energy Calculation',[
+    {type:'warn',text:'IEEE 1584-2002 Method — For Reference Only. Verify with site-specific arc flash study.'},
+    {type:'head',text:'Input Parameters'},
+    {rows:[['Bolted Fault Current',a.ibfKA.toFixed(3),'kA'],['System Voltage',(a.voltageKV*1000).toFixed(0),'V'],
+      ['Conductor Gap',a.gapMM.toFixed(0),'mm'],['Arc Duration',a.durationCycles.toFixed(1),'cycles'],
+      ['Working Distance',a.workingDistanceIn.toFixed(1),'in'],
+      ['Configuration',a.config==='box'?'Enclosure (Box)':'Open Air',''],
+      ['System Grounding',a.grounded?'Solidly Grounded':'Ungrounded/HRG','']]},
+    {type:'head',text:'Results'},
+    {rows:[['Arcing Current',f3(r.Ia),'kA'],['Incident Energy',f2(r.E),'cal/cm²'],
+      ['Arc Flash Boundary',f(r.afbFt,1),'ft'],['Arc Flash Boundary',f(r.afbIn,1),'in'],
+      ['PPE Category',cats[Math.min(r.cat,5)],''],
+      ['Arc Duration',f(r.tMs,1),'ms']]},
+  ]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// EVENT DELEGATION
+// ═══════════════════════════════════════════════════════════════════════
+
+document.addEventListener('input', e => {
+  const path = e.target.dataset.bind;
+  if (!path) return;
+  const val = e.target.type==='checkbox' ? e.target.checked : e.target.value;
+  setS(path, val);
+});
+
+document.addEventListener('change', e => {
+  const path = e.target.dataset.bind;
+  if (!path) return;
+  const val = e.target.type==='checkbox' ? e.target.checked : e.target.value;
+  setS(path, val);
+});
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const {action, page, value, path, idx, section} = el.dataset;
+
+  switch(action) {
+    case 'nav':
+      S.page = page;
+      closeSidebar();
+      render(); break;
+    case 'toggle':
+      setS(path, !getS(path)); break;
+    case 'xfmr-kva':
+      setS('xfmr.kva', parseFloat(value)); break;
+    case 'motor-hp':
+      setS('motor.hp', parseFloat(value)); break;
+    case 'arc-gap':
+      setS('arc.gapMM', parseFloat(value)); break;
+    case 'arc-dist':
+      setS('arc.workingDistanceIn', parseFloat(value)); break;
+    case 'save-xfmr': {
+      const x=S.xfmr, r=calcXfmr(x);
+      S.saved.push({type:'Transformer Fault Current',inputs:{...x},results:{flaS:r.flaS,flaP:r.flaP,iscInfKA:r.iscInfKA,iscUtilKA:r.iscUtilKA,iscKA:r.iscKA},timestamp:Date.now()});
+      persist(); render(); break; }
+    case 'save-cable': {
+      const c=S.cable, r=calcCable(c);
+      if(r) { S.saved.push({type:'Cable Impedance & VD',inputs:{...c},results:{ri:r.ri,xi:r.xi,rT:r.rT,xT:r.xT,zT:r.zT,vdT:r.vdT,vdPct:r.vdPct},timestamp:Date.now()}); persist(); render(); }
+      break; }
+    case 'save-motor': {
+      const m=S.motor, r=calcMotor(m);
+      S.saved.push({type:'Motor Contribution',inputs:{...m},results:{fla:r.fla,cA:r.cA,cKA:r.cKA},timestamp:Date.now()});
+      persist(); render(); break; }
+    case 'save-arc': {
+      const a=S.arc;
+      if(a.ibfKA>=.7&&a.ibfKA<=106) {
+        const r=calcArc(a);
+        S.saved.push({type:'Arc Flash Incident Energy',inputs:{...a},results:{Ia:r.Ia,E:r.E,afbFt:r.afbFt,afbIn:r.afbIn,cat:r.cat},timestamp:Date.now()});
+        persist(); render(); }
+      break; }
+    case 'pdf-xfmr': pdfXfmr(); break;
+    case 'pdf-cable': pdfCable(); break;
+    case 'pdf-motor': pdfMotor(); break;
+    case 'pdf-arc': pdfArc(); break;
+    case 'saved-pdf': {
+      const c = S.saved[parseInt(idx)];
+      if(!c) break;
+      const {type:t} = c;
+      // Temporarily set state to saved values, export, then restore
+      const oldPage = S.page;
+      if(t==='Transformer Fault Current'){Object.assign(S.xfmr,c.inputs);pdfXfmr();}
+      else if(t==='Cable Impedance & VD'){Object.assign(S.cable,c.inputs);pdfCable();}
+      else if(t==='Motor Contribution'){Object.assign(S.motor,c.inputs);pdfMotor();}
+      else if(t==='Arc Flash Incident Energy'){Object.assign(S.arc,c.inputs);pdfArc();}
+      break; }
+    case 'saved-del': {
+      const i2=parseInt(idx);
+      if(confirm('Delete this calculation?')) {
+        S.saved.splice(i2,1); delete S.ui.expanded[i2]; persist(); render(); }
+      break; }
+    case 'saved-expand': {
+      const i3=parseInt(idx);
+      S.ui.expanded[i3] = !S.ui.expanded[i3];
+      render(); break; }
+    case 'saved-clear':
+      if(confirm('Delete all saved calculations?')) { S.saved=[]; S.ui.expanded={}; persist(); render(); }
+      break;
+  }
+});
+
+function closeSidebar() {
+  S.ui.sidebarOpen = false;
+  document.getElementById('overlay').classList.remove('show');
+  const sb = document.getElementById('sidebar');
+  if(sb) sb.classList.remove('open');
+}
+
+// Hamburger
+document.addEventListener('click', e => {
+  if(e.target.closest('#hamburger')) {
+    S.ui.sidebarOpen = !S.ui.sidebarOpen;
+    document.getElementById('overlay').classList.toggle('show', S.ui.sidebarOpen);
+    const sb = document.getElementById('sidebar');
+    if(sb) sb.classList.toggle('open', S.ui.sidebarOpen);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════════════
+
+function render() {
+  const focusId = document.activeElement?.id || document.activeElement?.dataset?.bind;
+  const mainEl = document.getElementById('main');
+  const scrollY = mainEl?.scrollTop || 0;
+
+  document.getElementById('app').innerHTML = `
+    ${buildSidebar()}
+    <div id="wrapper">
+      <div id="topbar">
+        <button id="hamburger" class="ham">☰</button>
+        <div class="tb-status">
+          <div class="tb-dot"></div>
+          <span>IEEE 1584 &middot; NEC 2023 &middot; NFPA 70E 2021</span>
+        </div>
+        <div class="tb-right">${S.saved.length>0?S.saved.length+' saved':'No saved calcs'}</div>
+      </div>
+      <div id="main">${buildPage()}</div>
+    </div>`;
+
+  // Restore scroll
+  const newMain = document.getElementById('main');
+  if(newMain && scrollY) newMain.scrollTop = scrollY;
+
+  // Restore focus by data-bind path
+  if(focusId) {
+    const el = document.querySelector(`[data-bind="${focusId}"]`) || document.getElementById(focusId);
+    if(el) { el.focus(); if(el.select) el.select(); }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════════════
+
+loadState();
+
+const phases = ['Loading IEEE 1584 tables...','Importing NEC conductor data...','Building calculator engine...','Rendering reference tables...','Ready'];
+const barVals = [20, 45, 70, 90, 100];
+let pi = 0;
+
+const loadInterval = setInterval(() => {
+  if(pi < phases.length) {
+    document.getElementById('load-phase').textContent = phases[pi];
+    document.getElementById('load-bar').style.width = barVals[pi] + '%';
+    pi++;
+  } else {
+    clearInterval(loadInterval);
+    setTimeout(() => {
+      const loading = document.getElementById('loading');
+      loading.style.opacity = '0';
+      setTimeout(() => {
+        loading.remove();
+        const app = document.getElementById('app');
+        app.style.display = 'flex';
+        render();
+      }, 300);
+    }, 200);
+  }
+}, 280);
+</script>
 </body>
 </html>
